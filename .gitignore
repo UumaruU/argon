@@ -2,6 +2,7 @@
 /target
 /sourcemap.json
 *.rbxm
+!tests/fixtures/*.rbxm
 *.rbxmx
 *.rbxl
 *.rbxlx

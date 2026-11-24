@@ -16,6 +16,7 @@ pub struct Snapshot {
 	// Roblox related
 	pub name: String,
 	pub class: Ustr,
+	#[serde(with = "wire_properties")]
 	pub properties: Properties,
 	pub children: Vec<Snapshot>,
 }
@@ -195,6 +196,7 @@ pub struct AddedSnapshot {
 	pub parent: Ref,
 	pub name: String,
 	pub class: Ustr,
+	#[serde(with = "wire_properties")]
 	pub properties: Properties,
 	pub children: Vec<Snapshot>,
 }
@@ -218,7 +220,57 @@ pub struct UpdatedSnapshot {
 	pub meta: Option<Meta>,
 	pub name: Option<String>,
 	pub class: Option<Ustr>,
+	#[serde(default, with = "wire_properties::optional")]
 	pub properties: Option<Properties>,
+}
+
+mod wire_properties {
+	use serde::{de::Error as _, ser::Error as _, Deserialize, Deserializer, Serialize, Serializer};
+
+	use crate::Properties;
+
+	pub fn serialize<S>(properties: &Properties, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serde_json::to_value(properties)
+			.map_err(S::Error::custom)?
+			.serialize(serializer)
+	}
+
+	pub fn deserialize<'de, D>(deserializer: D) -> Result<Properties, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let value = serde_json::Value::deserialize(deserializer)?;
+		serde_json::from_value(value).map_err(D::Error::custom)
+	}
+
+	pub mod optional {
+		use super::*;
+
+		pub fn serialize<S>(properties: &Option<Properties>, serializer: S) -> Result<S::Ok, S::Error>
+		where
+			S: Serializer,
+		{
+			properties
+				.as_ref()
+				.map(serde_json::to_value)
+				.transpose()
+				.map_err(S::Error::custom)?
+				.serialize(serializer)
+		}
+
+		pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Properties>, D::Error>
+		where
+			D: Deserializer<'de>,
+		{
+			Option::<serde_json::Value>::deserialize(deserializer)?
+				.map(serde_json::from_value)
+				.transpose()
+				.map_err(D::Error::custom)
+		}
+	}
 }
 
 impl UpdatedSnapshot {
